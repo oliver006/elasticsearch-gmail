@@ -1,12 +1,12 @@
-Elasticsearch For Beginners: ES and GMail
+Elasticsearch For Beginners: Indexing your GMail inbox
 =======================
 
 
 #### What's this all about? 
 
-I recently looked at my GMail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to quickly see what emails take up space, who I sent them to, who emails me, etc
+I recently looked at my GMail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to tell what emails take up space, who sent them to, who emails me, etc
 
-We'll load an entire GMail inbox into Elasticsearch and then start querying the cluster to get a better picture of what's going on.
+Goal of this tutorial is to load an entire GMail inbox into Elasticsearch using bulk indexing and then start querying the cluster to get a better picture of what's going on.
 
 
 
@@ -20,20 +20,20 @@ I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scrip
 
 #### Aight, where do we start? 
 
-First, go [here](http://ohardt.us/download-gmail-mailbox) and download your GMail mailbox, depending on the size this might take a while.
+First, go [here](http://ohardt.us/download-gmail-mailbox) and download your GMail mailbox, depending on the amount of emails you have accumulated this might take a while.
 
-The faile you downloaded is in the [mbox format](http://en.wikipedia.org/wiki/Mbox) and Python provides libraries to work with the mbox format so that's easy.
+The downloaded archive is in the [mbox format](http://en.wikipedia.org/wiki/Mbox) and Python provides libraries to work with the mbox format so that's easy.
 
 The overall program will look something like this:
 
-```
-    mbox = mailbox.UnixMailbox(open('emails.mbox', 'rb'), email.message_from_file)
+```python
+mbox = mailbox.UnixMailbox(open('emails.mbox', 'rb'), email.message_from_file)
 
-    for msg in mbox:
-        item = convert_msg_to_json(msg)
-		upload_item_to_es(item)
+for msg in mbox:
+    item = convert_msg_to_json(msg)
+	upload_item_to_es(item)
 
-	print "Done!"
+print "Done!"
 ```
 
 #### Ok, tell me more about the details
@@ -47,7 +47,7 @@ First, we got to turn the mbox format messages into JSON so we can insert it int
 
 A good first step:
 
-```
+```python
 def convert_msg_to_json(msg):
     result = {'parts': []}
     for (k, v) in msg.items():
@@ -57,30 +57,51 @@ def convert_msg_to_json(msg):
 
 Additionally, you also want to parse and normalize the `From` and `To` email addresses:
 
-```
-    for k in ['to', 'cc', 'bcc']:
-        if not result.get(k):
-            continue
-        emails_split = result[k].replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
-        result[k] = [ normalize_email(e) for e in emails_split]
+```python
+for k in ['to', 'cc', 'bcc']:
+    if not result.get(k):
+        continue
+    emails_split = result[k].replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
+    result[k] = [ normalize_email(e) for e in emails_split]
 
-    if "from" in result:
-        result['from'] = normalize_email(result['from'])
+if "from" in result:
+    result['from'] = normalize_email(result['from'])
 ```
 
 Elasticsearch expects timestamps to be in microseconds so let's convert the date accordingly
 
+```python
+if "date" in result:
+    tt = email.utils.parsedate_tz(result['date'])
+    result['date_ts'] = int(calendar.timegm(tt) - tt[9]) * 1000
 ```
-    if "date" in result:
-        tt = email.utils.parsedate_tz(result['date'])
-        result['date_ts'] = int(calendar.timegm(tt) - tt[9]) * 1000
+
+We also need to split up and normalize the labels
+
+```python
+labels = []
+if "x-gmail-labels" in result:
+    labels = [l.strip().lower() for l in result["x-gmail-labels"].split(',')]
+    del result["x-gmail-labels"]
+result['labels'] = labels
 ```
+
+Email size is also interesting so let's break that out
+
+```python
+parts = json_msg.get("parts", [])
+json_msg['content_size_total'] = 0
+for part in parts:
+    json_msg['content_size_total'] += len(part.get('content', ""))
+
+```
+
 
 ##### Index the data with Elasticsearch
 
 The most simple aproach is a PUT request per item:
 
-```
+```python
 def upload_item_to_es(item)
     es_url = "http://localhost:9200/gmail/email/%s" % (item['message-id'])
     request = HTTPRequest(es_url, method="PUT", body=json.dumps(item), request_timeout=10)
@@ -111,9 +132,8 @@ cmd = {'index': {'_index': 'gmail', '_type': 'email', '_id': item['message-id']}
 
 The final code looks something like this:
 
-```
+```python
 upload_data = list()
-
 for msg in mbox:
     item = convert_msg_to_json(msg)
     upload_data.append(item)
@@ -127,7 +147,7 @@ if upload_data:
 ```
 and
 
-```
+```python
 def upload_batch(upload_data):
 
     upload_data_txt = ""
@@ -145,7 +165,7 @@ def upload_batch(upload_data):
 
 
 
-#### Ok, but where's the data?
+#### Ok, show me some data!
 
 After indexing all your emails we can start running queries.
 
@@ -156,7 +176,7 @@ curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' 
 '
 ```
 
-Shows us emails, grouped by recipient:
+Emails, grouped by recipient:
 
 ```
   "aggregations" : {
@@ -177,7 +197,7 @@ Shows us emails, grouped by recipient:
   }
 ```
 
-Anoher one:
+Another one:
 
 ```
 curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' -d '{
@@ -186,7 +206,7 @@ curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' 
 '
 ```
 
-shows us how many emails we have per label
+How many emails we have per label
 
 ```
   "hits" : {
@@ -221,3 +241,7 @@ shows us how many emails we have per label
 - ...
 
 
+
+#### Feedback
+
+Open pull requests, issues or email me at o@21zoo.com

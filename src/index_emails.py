@@ -22,7 +22,7 @@ def delete_index():
     except:
         pass
 
-    print 'Delete idx done'
+    print 'Delete index done'
     time.sleep(1)
 
 
@@ -52,7 +52,7 @@ def create_index():
     request = HTTPRequest(ES_URL, method="PUT", body=body, request_timeout=240)
     response = http_client.fetch(request)
     print response.body
-    print 'Create idx done'
+    print 'Create index done'
     time.sleep(1)
 
 
@@ -66,7 +66,7 @@ def upload_batch(upload_data):
     request = HTTPRequest("http://localhost:9200/_bulk", method="POST", body=upload_data_txt, request_timeout=240)
     response = http_client.fetch(request)
     result = json.loads(response.body)
-    print "Errors during upload: %s" % result['errors']
+    print "Errors during upload: %s - uploaded %d items" % (result['errors'], len(upload_data))
 
 
 def normalize_email(email_in):
@@ -94,9 +94,14 @@ def convert_msg_to_json(msg):
 
     labels = []
     if "x-gmail-labels" in result:
-        labels = result["x-gmail-labels"].split(',')
+        labels = [l.strip().lower() for l in result["x-gmail-labels"].split(',')]
         del result["x-gmail-labels"]
     result['labels'] = labels
+
+    parts = result.get("parts", [])
+    result['content_size_total'] = 0
+    for part in parts:
+        result['content_size_total'] += len(part.get('content', ""))
 
     return result
 
@@ -131,13 +136,13 @@ if __name__ == '__main__':
         "infile",
         type=str,
         default=None,
-        help="infile")
+        help="The mbox input file")
 
     tornado.options.define(
         "init",
         type=str,
         default=None,
-        help="infile")
+        help="Delete and re-initialize the Elasticsearch index")
 
     tornado.options.parse_command_line()
 
