@@ -102,7 +102,7 @@ for part in parts:
 The most simple aproach is a PUT request per item:
 
 ```python
-def upload_item_to_es(item)
+def upload_item_to_es(item):
     es_url = "http://localhost:9200/gmail/email/%s" % (item['message-id'])
     request = HTTPRequest(es_url, method="PUT", body=json.dumps(item), request_timeout=10)
     response = yield http_client.fetch(request)
