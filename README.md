@@ -8,13 +8,14 @@ I recently looked at my GMail inbox and noticed that I have well over 50k emails
 
 Goal of this tutorial is to load an entire GMail inbox into Elasticsearch using bulk indexing and then start querying the cluster to get a better picture of what's going on.
 
+__Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the HN API](https://github.com/oliver006/elasticsearch-hn)
 
 
 #### Prerequisites
 
 Set up [Elasticsearch](http://ohardt.us/es-install) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
-I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data.
+I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado` to install Tornado. 
 
 
 
@@ -169,6 +170,31 @@ def upload_batch(upload_data):
 
 After indexing all your emails we can start running queries.
 
+
+##### Time-based filters
+
+If you want to search for emails from the last 6 months, you can add the range filter and search for `gte` the current time (`now`) minus 6 month:
+
+```
+curl -XGET 'http://localhost:9200/gmail/email/_search?pretty' -d '{
+"filter": { "range" : { "date_ts" : { "gte": "now-6M" } } } }
+'
+```
+
+or you can filter for all emails from 2014 by using `gte` and `lt`
+
+```
+curl -XGET 'http://localhost:9200/gmail/email/_search?pretty' -d '{
+"filter": { "range" : { "date_ts" : { "gte": "2013-01-01T00:00:00.000Z", "lt": "2014-01-01T00:00:00.000Z" } } } }
+'
+```
+
+
+##### Aggregation queries
+
+Aggregation queries let us bucket data by a given key and count the number of messages per bucket. 
+For example, number of messages grouped by recipient:
+
 ```
 curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' -d '{
 "aggs": { "emails": { "terms" : { "field" : "to",  "size": 10 }
@@ -176,28 +202,27 @@ curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' 
 '
 ```
 
-Emails, grouped by recipient:
+Result:
 
 ```
-  "aggregations" : {
-    "emails" : {
-      "buckets" : [ {
-           "key" : "noreply@github.com",
-           "doc_count" : 1920
-      }, { "key" : "oliver@gmail.com",
-           "doc_count" : 1326
-      }, { "key" : "michael@gmail.com",
-           "doc_count" : 263
-      }, { "key" : "david@gmail.com",
-           "doc_count" : 232
-      }
-      ...
-      ]
-    }
+"aggregations" : {
+"emails" : {
+  "buckets" : [ {
+       "key" : "noreply@github.com",
+       "doc_count" : 1920
+  }, { "key" : "oliver@gmail.com",
+       "doc_count" : 1326
+  }, { "key" : "michael@gmail.com",
+       "doc_count" : 263
+  }, { "key" : "david@gmail.com",
+       "doc_count" : 232
   }
+  ...
+  ]
+}
 ```
 
-Another one:
+This one gives us the number of emails per label:
 
 ```
 curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' -d '{
@@ -206,31 +231,63 @@ curl -XGET 'http://localhost:9200/gmail/email/_search?pretty&search_type=count' 
 '
 ```
 
-How many emails we have per label
+Result:
 
 ```
-  "hits" : {
-    "total" : 51794,
-  },
-  "aggregations" : {
-    "labels" : {
-      "buckets" : [       {
-           "key" : "important",
-           "doc_count" : 15430
-      }, { "key" : "github",
-           "doc_count" : 4928
-      }, { "key" : "sent",
-           "doc_count" : 4285
-      }, { "key" : "unread",
-           "doc_count" : 510
-      }, 
-      ...
-       ]
-    }
-  }
+"hits" : {
+  "total" : 51794,
+},
+"aggregations" : {
+"labels" : {
+  "buckets" : [       {
+       "key" : "important",
+       "doc_count" : 15430
+  }, { "key" : "github",
+       "doc_count" : 4928
+  }, { "key" : "sent",
+       "doc_count" : 4285
+  }, { "key" : "unread",
+       "doc_count" : 510
+  }, 
+  ...
+   ]
+}
 ```
 
+Use a `date histogram` you can also count how many emails you sent and received per year:
 
+```
+curl -s "localhost:9200/gmail/email/_search?pretty&search_type=count" -d '
+{ "aggs": {
+    "years": {
+      "date_histogram": {
+        "field": "date_ts", "interval": "year"
+}}}}      
+'
+```
+
+Result:
+
+```
+"aggregations" : {
+"years" : {
+  "buckets" : [ {
+    "key_as_string" : "2004-01-01T00:00:00.000Z",
+    "key" : 1072915200000,
+    "doc_count" : 585
+  }, {  
+...
+  }, {  
+    "key_as_string" : "2013-01-01T00:00:00.000Z",
+    "key" : 1356998400000,
+    "doc_count" : 12832
+  }, {
+    "key_as_string" : "2014-01-01T00:00:00.000Z",
+    "key" : 1388534400000,
+    "doc_count" : 7283
+  } ]
+}
+```
 
 
 #### Todo
@@ -238,6 +295,7 @@ How many emails we have per label
 - more interesting queries
 - schema tweaks
 - multi-part message parsing
+- blurb about performance
 - ...
 
 

@@ -55,7 +55,7 @@ def create_index():
     print 'Create index done'
     time.sleep(1)
 
-
+total_uploaded = 0
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
@@ -66,7 +66,10 @@ def upload_batch(upload_data):
     request = HTTPRequest("http://localhost:9200/_bulk", method="POST", body=upload_data_txt, request_timeout=240)
     response = http_client.fetch(request)
     result = json.loads(response.body)
-    print "Errors during upload: %s - uploaded %d items" % (result['errors'], len(upload_data))
+
+    global total_uploaded
+    total_uploaded += len(upload_data)
+    print "Errors during upload: %s -  upload took: %4dms, total messages uploaded: %6d" % (result['errors'], result['took'], total_uploaded)
 
 
 def normalize_email(email_in):
@@ -76,6 +79,9 @@ def normalize_email(email_in):
 
 def convert_msg_to_json(msg):
     result = {'parts': []}
+    if not 'message-id' in msg:
+        return False
+
     for (k, v) in msg.items():
         result[k.lower()] = v.decode('utf-8', 'ignore')
 
@@ -90,7 +96,8 @@ def convert_msg_to_json(msg):
 
     if "date" in result:
         tt = email.utils.parsedate_tz(result['date'])
-        result['date_ts'] = int(calendar.timegm(tt) - tt[9]) * 1000
+        tz = tt[9] or 0
+        result['date_ts'] = int(calendar.timegm(tt) - tz) * 1000
 
     labels = []
     if "x-gmail-labels" in result:
@@ -112,14 +119,20 @@ def load_from_file():
         delete_index()
         create_index()
 
+    if tornado.options.options.skip:
+        print "Skipping first %d messages from mbox file" % tornado.options.options.skip
+
     count = 0
     upload_data = list()
     mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
     for msg in mbox:
         count += 1
+        if count < tornado.options.options.skip:
+            continue
         item = convert_msg_to_json(msg)
-        upload_data.append(item)
-        if len(upload_data) == DEFAULT_BATCH_SIZE:
+        if item:
+            upload_data.append(item)
+        if len(upload_data) == tornado.options.options.batch_size:
             upload_batch(upload_data)
             upload_data = list()
 
@@ -140,9 +153,22 @@ if __name__ == '__main__':
 
     tornado.options.define(
         "init",
-        type=str,
-        default=None,
+        type=bool,
+        default=False,
         help="Delete and re-initialize the Elasticsearch index")
+
+    tornado.options.define(
+        "batch_size",
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
+        help="Elasticsearch bulk index batch size")
+
+    tornado.options.define(
+        "skip",
+        type=int,
+        default=0,
+        help="Number of messages to skip from the mbox file")
+
 
     tornado.options.parse_command_line()
 
