@@ -1,4 +1,4 @@
-Elasticsearch For Beginners: Indexing your GMail inbox
+Elasticsearch For Beginners: Indexing your GMail Inbox
 =======================
 
 
@@ -168,12 +168,12 @@ def upload_batch(upload_data):
 
 #### Ok, show me some data!
 
-After indexing all your emails we can start running queries.
+After indexing all your emails, we can start running queries.
 
 
-##### Time-based filters
+##### Filters
 
-If you want to search for emails from the last 6 months, you can add the range filter and search for `gte` the current time (`now`) minus 6 month:
+If you want to search for emails from the last 6 months, you can use the range filter and search for `gte` the current time (`now`) minus 6 month:
 
 ```
 curl -XGET 'http://localhost:9200/gmail/email/_search?pretty' -d '{
@@ -188,6 +188,13 @@ curl -XGET 'http://localhost:9200/gmail/email/_search?pretty' -d '{
 "filter": { "range" : { "date_ts" : { "gte": "2013-01-01T00:00:00.000Z", "lt": "2014-01-01T00:00:00.000Z" } } } }
 '
 ```
+
+You can also quickly query for certain fields via the `q` parameter. This example shows you all your Amazon shipping info emails:
+
+```
+curl "localhost:9200/gmail/email/_search?pretty&q=from:ship-confirm@amazon.com"
+``` 
+
 
 
 ##### Aggregation queries
