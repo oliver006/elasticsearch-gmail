@@ -1,4 +1,4 @@
-Elasticsearch For Beginners: Indexing your GMail Inbox
+Elasticsearch For Beginners: Indexing your Gmail Inbox
 =======================
 
 
