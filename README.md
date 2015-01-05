@@ -4,9 +4,9 @@ Elasticsearch For Beginners: Indexing your Gmail Inbox
 
 #### What's this all about? 
 
-I recently looked at my GMail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to tell what emails take up space, who sent them to, who emails me, etc
+I recently looked at my Gmail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to tell what emails take up space, who sent them to, who emails me, etc
 
-Goal of this tutorial is to load an entire GMail inbox into Elasticsearch using bulk indexing and then start querying the cluster to get a better picture of what's going on.
+Goal of this tutorial is to load an entire Gmail inbox into Elasticsearch using bulk indexing and then start querying the cluster to get a better picture of what's going on.
 
 __Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the HN API](https://github.com/oliver006/elasticsearch-hn)
 
@@ -21,7 +21,7 @@ I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scrip
 
 #### Aight, where do we start? 
 
-First, go [here](http://ohardt.us/download-gmail-mailbox) and download your GMail mailbox, depending on the amount of emails you have accumulated this might take a while.
+First, go [here](http://ohardt.us/download-gmail-mailbox) and download your Gmail mailbox, depending on the amount of emails you have accumulated this might take a while.
 
 The downloaded archive is in the [mbox format](http://en.wikipedia.org/wiki/Mbox) and Python provides libraries to work with the mbox format so that's easy.
 
