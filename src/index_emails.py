@@ -12,7 +12,8 @@ import email
 http_client = HTTPClient()
 
 DEFAULT_BATCH_SIZE = 500
-ES_URL  = "http://localhost:9200/gmail"
+ES_URL = "http://localhost:9200/gmail"
+
 
 def delete_index():
     try:
@@ -29,20 +30,20 @@ def delete_index():
 def create_index():
 
     schema = {
-        "settings" : {
-            "number_of_shards" :   2,
-            "number_of_replicas" : 0
+        "settings": {
+            "number_of_shards": 2,
+            "number_of_replicas": 0
         },
-        "mappings" : {
-            "email" : {
-                "_source" : { "enabled" : True },
-                "properties" : {
-                    "from" :         { "type" : "string", "index" : "not_analyzed" },
-                    "return-path" :      { "type" : "string", "index" : "not_analyzed" },
-                    "delivered-to" :   { "type" : "string", "index" : "not_analyzed" },
-                    "message-id" : { "type" : "string", "index" : "not_analyzed" },
-                    "to" :        { "type" : "string", "index" : "not_analyzed" },
-                    "date_ts" :          { "type" : "date"    },
+        "mappings": {
+            "email": {
+                "_source": {"enabled": True},
+                "properties": {
+                    "from": {"type": "string", "index": "not_analyzed"},
+                    "return-path": {"type": "string", "index": "not_analyzed"},
+                    "delivered-to": {"type": "string", "index": "not_analyzed"},
+                    "message-id": {"type": "string", "index": "not_analyzed"},
+                    "to": {"type": "string", "index": "not_analyzed"},
+                    "date_ts": {"type": "date"},
                 },
             }
         }
@@ -56,6 +57,8 @@ def create_index():
     time.sleep(1)
 
 total_uploaded = 0
+
+
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
@@ -89,7 +92,7 @@ def convert_msg_to_json(msg):
         if not result.get(k):
             continue
         emails_split = result[k].replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
-        result[k] = [ normalize_email(e) for e in emails_split]
+        result[k] = [normalize_email(e) for e in emails_split]
 
     if "from" in result:
         result['from'] = normalize_email(result['from'])
@@ -168,7 +171,6 @@ if __name__ == '__main__':
         type=int,
         default=0,
         help="Number of messages to skip from the mbox file")
-
 
     tornado.options.parse_command_line()
 
