@@ -17,14 +17,14 @@ ES_URL = "http://localhost:9200/gmail"
 
 def delete_index():
     try:
-        request = HTTPRequest(ES_URL, method="DELETE", request_timeout=240)
+        body = {"refresh": True}
+        request = HTTPRequest(ES_URL, method="DELETE", body=json.dumps(body), request_timeout=240)
         response = http_client.fetch(request)
         print response.body
     except:
         pass
 
     print 'Delete index done'
-    time.sleep(1)
 
 
 def create_index():
@@ -46,7 +46,8 @@ def create_index():
                     "date_ts": {"type": "date"},
                 },
             }
-        }
+        },
+        "refresh": True
     }
 
     body = json.dumps(schema)
@@ -54,7 +55,6 @@ def create_index():
     response = http_client.fetch(request)
     print response.body
     print 'Create index done'
-    time.sleep(1)
 
 total_uploaded = 0
 
