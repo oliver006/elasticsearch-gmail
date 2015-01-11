@@ -20,11 +20,10 @@ def delete_index():
         body = {"refresh": True}
         request = HTTPRequest(ES_URL, method="DELETE", body=json.dumps(body), request_timeout=240)
         response = http_client.fetch(request)
-        print response.body
+        print 'Delete index done   %s' % response.body
     except:
         pass
 
-    print 'Delete index done'
 
 
 def create_index():
@@ -53,8 +52,7 @@ def create_index():
     body = json.dumps(schema)
     request = HTTPRequest(ES_URL, method="PUT", body=body, request_timeout=240)
     response = http_client.fetch(request)
-    print response.body
-    print 'Create index done'
+    print 'Create index done   %s' % response.body
 
 total_uploaded = 0
 
@@ -72,7 +70,8 @@ def upload_batch(upload_data):
 
     global total_uploaded
     total_uploaded += len(upload_data)
-    print "Errors during upload: %s -  upload took: %4dms, total messages uploaded: %6d" % (result['errors'], result['took'], total_uploaded)
+    res_txt = "OK" if not result['errors'] else "FAILED"
+    print "Upload: %s - upload took: %4dms, total messages uploaded: %6d" % (res_txt, result['took'], total_uploaded)
 
 
 def normalize_email(email_in):
@@ -99,8 +98,9 @@ def convert_msg_to_json(msg):
 
     if "date" in result:
         tt = email.utils.parsedate_tz(result['date'])
-        tz = tt[9] or 0
-        result['date_ts'] = int(calendar.timegm(tt) - tz) * 1000
+        if tt:
+            tz = tt[9] if len(tt) == 10 else 0
+            result['date_ts'] = int(calendar.timegm(tt) - tz) * 1000
 
     labels = []
     if "x-gmail-labels" in result:
@@ -176,3 +176,5 @@ if __name__ == '__main__':
 
     if tornado.options.options.infile:
         IOLoop.instance().run_sync(load_from_file)
+    else:
+        tornado.options.print_help()
