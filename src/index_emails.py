@@ -82,7 +82,7 @@ def normalize_email(email_in):
 def convert_msg_to_json(msg):
     result = {'parts': []}
     if not 'message-id' in msg:
-        return False
+        return None
 
     for (k, v) in msg.items():
         result[k.lower()] = v.decode('utf-8', 'ignore')
@@ -97,10 +97,12 @@ def convert_msg_to_json(msg):
         result['from'] = normalize_email(result['from'])
 
     if "date" in result:
-        tt = email.utils.parsedate_tz(result['date'])
-        if tt:
+        try:
+            tt = email.utils.parsedate_tz(result['date'])
             tz = tt[9] if len(tt) == 10 else 0
             result['date_ts'] = int(calendar.timegm(tt) - tz) * 1000
+        except:
+            return None
 
     labels = []
     if "x-gmail-labels" in result:
@@ -135,9 +137,9 @@ def load_from_file():
         item = convert_msg_to_json(msg)
         if item:
             upload_data.append(item)
-        if len(upload_data) == tornado.options.options.batch_size:
-            upload_batch(upload_data)
-            upload_data = list()
+            if len(upload_data) == tornado.options.options.batch_size:
+                upload_batch(upload_data)
+                upload_data = list()
 
     # upload remaining items in `upload_batch`
     if upload_data:
