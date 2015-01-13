@@ -99,7 +99,7 @@ def convert_msg_to_json(msg):
     if "date" in result:
         try:
             tt = email.utils.parsedate_tz(result['date'])
-            tz = tt[9] if len(tt) == 10 else 0
+            tz = tt[9] if len(tt) == 10 and tt[9] else 0
             result['date_ts'] = int(calendar.timegm(tt) - tz) * 1000
         except:
             return None
