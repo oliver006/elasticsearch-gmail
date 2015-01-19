@@ -30,7 +30,7 @@ def create_index():
 
     schema = {
         "settings": {
-            "number_of_shards": 2,
+            "number_of_shards": tornado.options.options.num_of_shards,
             "number_of_replicas": 0
         },
         "mappings": {
@@ -172,6 +172,9 @@ if __name__ == '__main__':
 
     tornado.options.define("skip", type=int, default=0,
                            help="Number of messages to skip from the mbox file")
+
+    tornado.options.define("num_of_shards", type=int, default=2,
+                           help="Number of shards for ES index")
 
     tornado.options.parse_command_line()
 
