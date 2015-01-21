@@ -63,7 +63,7 @@ total_uploaded = 0
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
-        cmd = {'index': {'_index': 'gmail', '_type': 'email', '_id': item['message-id']}}
+        cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
         upload_data_txt += json.dumps(cmd) + "\n"
         upload_data_txt += json.dumps(item) + "\n"
 
