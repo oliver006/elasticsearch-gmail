@@ -2,7 +2,8 @@ Elasticsearch For Beginners: Indexing your Gmail Inbox
 =======================
 
 
-#### What's this all about? 
+
+#### What's this all about?
 
 I recently looked at my Gmail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to tell what emails take up space, who sent them to, who emails me, etc
 
@@ -15,11 +16,11 @@ __Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the 
 
 Set up [Elasticsearch](http://ohardt.us/es-install) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
-I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado` to install Tornado. 
+I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado chardet` to install Tornado and chardet.
 
 
 
-#### Aight, where do we start? 
+#### Aight, where do we start?
 
 First, go [here](http://ohardt.us/download-gmail-mailbox) and download your Gmail mailbox, depending on the amount of emails you have accumulated this might take a while.
 
@@ -100,7 +101,7 @@ for part in parts:
 
 ##### Index the data with Elasticsearch
 
-The most simple aproach is a PUT request per item:
+The most simple approach is a PUT request per item:
 
 ```python
 def upload_item_to_es(item):
@@ -109,12 +110,12 @@ def upload_item_to_es(item):
     response = yield http_client.fetch(request)
     if not response.code in [200, 201]:
         print "\nfailed to add item %s" % item['message-id']
-    
+
 ```
 
 However, Elasticsearch provides a better method for importing large chunks of data: [bulk indexing](http://ohardt.us/es-bulk-indexing)
 Instead of making a HTTP request per document and indexing individually, we batch them in chunks of eg. 1000 documents and then index them.<br>
-Bulk messages are of the format: 
+Bulk messages are of the format:
 
 ```
 cmd\n
@@ -195,11 +196,9 @@ You can also quickly query for certain fields via the `q` parameter. This exampl
 curl "localhost:9200/gmail/email/_search?pretty&q=from:ship-confirm@amazon.com"
 ``` 
 
-
-
 ##### Aggregation queries
 
-Aggregation queries let us bucket data by a given key and count the number of messages per bucket. 
+Aggregation queries let us bucket data by a given key and count the number of messages per bucket.
 For example, number of messages grouped by recipient:
 
 ```
@@ -255,7 +254,7 @@ Result:
        "doc_count" : 4285
   }, { "key" : "unread",
        "doc_count" : 510
-  }, 
+  },
   ...
    ]
 }
@@ -269,7 +268,7 @@ curl -s "localhost:9200/gmail/email/_search?pretty&search_type=count" -d '
     "years": {
       "date_histogram": {
         "field": "date_ts", "interval": "year"
-}}}}      
+}}}}
 '
 ```
 
@@ -294,6 +293,37 @@ Result:
     "doc_count" : 7283
   } ]
 }
+```
+
+Write aggregation queries to work out how much you spent on Amazon/Steam:
+
+```
+GET _search
+{
+  "query": {
+    "match_all": {}
+      },
+      "size": 0,
+      "aggs": {
+        "group_by_company": {
+          "terms": {
+            "field": "order_details.merchant"
+            },
+            "aggs": {
+              "total_spent": {
+                "sum": {
+                  "field": "order_details.order_total"
+                }
+                },
+                "postage": {
+                  "sum": {
+                    "field": "order_details.postage"
+                  }
+                }
+              }
+            }
+          }
+        }
 ```
 
 

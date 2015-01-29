@@ -7,6 +7,11 @@ import calendar
 import email.utils
 import mailbox
 import email
+import quopri
+import chardet
+from DelegatingEmailParser import DelegatingEmailParser
+from AmazonEmailParser import AmazonEmailParser
+from SteamEmailParser import SteamEmailParser
 import logging
 
 http_client = HTTPClient()
@@ -19,12 +24,11 @@ def delete_index():
     try:
         url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
         request = HTTPRequest(url, method="DELETE", request_timeout=240)
+        body = {"refresh": True}
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
     except:
         pass
-
-
 
 def create_index():
 
@@ -135,6 +139,9 @@ def load_from_file():
     upload_data = list()
     logging.info("Starting import from file %s" % tornado.options.options.infile)
     mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
+
+    emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
+
     for msg in mbox:
         count += 1
         if count < tornado.options.options.skip:
