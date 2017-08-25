@@ -12,6 +12,7 @@ import chardet
 from DelegatingEmailParser import DelegatingEmailParser
 from AmazonEmailParser import AmazonEmailParser
 from SteamEmailParser import SteamEmailParser
+from bs4 import BeautifulSoup
 import logging
 
 http_client = HTTPClient()
@@ -19,6 +20,20 @@ http_client = HTTPClient()
 DEFAULT_BATCH_SIZE = 500
 DEFAULT_ES_URL = "http://localhost:9200"
 DEFAULT_INDEX_NAME = "gmail"
+
+def strip_html_css_js(msg):
+    soup = BeautifulSoup(msg,"html.parser") # create a new bs4 object from the html data loaded
+    for script in soup(["script", "style"]): # remove all javascript and stylesheet code
+        script.extract()
+    # get text
+    text = soup.get_text()
+    # break into lines and remove leading and trailing space on each
+    lines = (line.strip() for line in text.splitlines())
+    # break multi-headlines into a line each
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    # drop blank lines
+    text = '\n'.join(chunk for chunk in chunks if chunk)
+    return text
 
 def delete_index():
     try:
@@ -117,6 +132,20 @@ def convert_msg_to_json(msg):
         del result["x-gmail-labels"]
     result['labels'] = labels
 
+    # Bodies...
+    if tornado.options.options.index_bodies:
+        result['body'] = ''
+        if msg.is_multipart():
+            for mpart in msg.get_payload():
+                if mpart is not None:
+                    mpart_payload = mpart.get_payload(decode=True)
+                    if mpart_payload is not None:
+                        result['body'] += strip_html_css_js(mpart_payload)
+        else:
+            result['body'] = strip_html_css_js(msg.get_payload(decode=True))
+
+        result['body_size'] = len(result['body'])
+
     parts = result.get("parts", [])
     result['content_size_total'] = 0
     for part in parts:
@@ -182,6 +211,9 @@ if __name__ == '__main__':
 
     tornado.options.define("num_of_shards", type=int, default=2,
                            help="Number of shards for ES index")
+
+    tornado.options.define("index_bodies", type=bool, default=False,
+                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and 'body_size'")
 
     tornado.options.parse_command_line()
 

@@ -18,6 +18,8 @@ Set up [Elasticsearch](http://ohardt.us/es-install) and make sure it's running a
 
 I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado chardet` to install Tornado and chardet.
 
+You may also need to `pip install beautifulsoup4`, for the stripping HTML/JS/CSS via the body indexing flag: `--index_bodies`
+
 
 
 #### Aight, where do we start?
@@ -194,7 +196,7 @@ You can also quickly query for certain fields via the `q` parameter. This exampl
 
 ```
 curl "localhost:9200/gmail/email/_search?pretty&q=from:ship-confirm@amazon.com"
-``` 
+```
 
 ##### Aggregation queries
 
