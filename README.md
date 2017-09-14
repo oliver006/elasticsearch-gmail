@@ -328,6 +328,12 @@ GET _search
         }
 ```
 
+#### Resources
+
+Not interested in figuring out how to setup Elasticsearch and Kibana? Take a look at [comms-analyzer-toolbox](https://github.com/bitsofinfo/comms-analyzer-toolbox) which bundles
+all the needed software including **elasticsearch-gmail** in a single docker artifact that you can 
+import and analyze your email with one command.
+
 
 #### Todo
 
