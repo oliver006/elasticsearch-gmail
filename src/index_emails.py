@@ -14,6 +14,7 @@ from AmazonEmailParser import AmazonEmailParser
 from SteamEmailParser import SteamEmailParser
 from bs4 import BeautifulSoup
 import logging
+import sys
 
 http_client = HTTPClient()
 
@@ -126,7 +127,11 @@ def process_msg_body(msg,result):
         else:
             decoded_payload = msg.get_payload(decode=True)
             if decoded_payload:
-                result['body'] += strip_html_css_js(decoded_payload)
+                try:
+                    result['body'] += strip_html_css_js(decoded_payload)
+                except:
+                    logging.error("failed to strip_html_css_js(decoded_payload): %s %s" % (sys.exc_info()[0],sys.exc_info()[1]))
+                    result['body'] += decoded_payload
 
 def convert_msg_to_json(msg):
     result = {'parts': []}
