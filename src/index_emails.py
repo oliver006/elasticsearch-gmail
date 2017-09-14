@@ -22,7 +22,7 @@ DEFAULT_ES_URL = "http://localhost:9200"
 DEFAULT_INDEX_NAME = "gmail"
 
 def strip_html_css_js(msg):
-    soup = BeautifulSoup(msg,"html.parser") # create a new bs4 object from the html data loaded
+    soup = BeautifulSoup(msg,tornado.options.options.index_bodies_html_parser) # create a new bs4 object from the html data loaded
     for script in soup(["script", "style"]): # remove all javascript and stylesheet code
         script.extract()
     # get text
@@ -100,6 +100,33 @@ def normalize_email(email_in):
     parsed = email.utils.parseaddr(email_in)
     return parsed[1]
 
+def content_type_is_ignored(content_type):
+    if tornado.options.options.index_bodies_ignore_content_types:
+        ignore_types = tornado.options.options.index_bodies_ignore_content_types.split(",")
+        for to_ignore in ignore_types:
+            if to_ignore:
+                if to_ignore.strip().lower() in content_type.lower():
+                    return True
+    return False
+
+def process_msg_body(msg,result):
+    if msg.is_multipart():
+        for mpart in msg.get_payload(): # don't decode
+            if mpart is not None: # recurse
+                process_msg_body(mpart,result)
+
+    else:
+        # log filename of any part dispostiion
+        if msg.get_filename():
+            result['body_filenames'] += (msg.get_filename() + " ")
+
+        # ignore the content-type?
+        if content_type_is_ignored(msg.get_content_type()):
+            result['body_ignored_content_types'] += (msg.get_content_type() + " ")
+        else:
+            decoded_payload = msg.get_payload(decode=True)
+            if decoded_payload:
+                result['body'] += strip_html_css_js(decoded_payload)
 
 def convert_msg_to_json(msg):
     result = {'parts': []}
@@ -135,15 +162,12 @@ def convert_msg_to_json(msg):
     # Bodies...
     if tornado.options.options.index_bodies:
         result['body'] = ''
-        if msg.is_multipart():
-            for mpart in msg.get_payload():
-                if mpart is not None:
-                    mpart_payload = mpart.get_payload(decode=True)
-                    if mpart_payload is not None:
-                        result['body'] += strip_html_css_js(mpart_payload)
-        else:
-            result['body'] = strip_html_css_js(msg.get_payload(decode=True))
+        result['body_ignored_content_types'] = ''
+        result['body_filenames'] = ''
 
+        process_msg_body(msg,result)
+
+        # log body size
         result['body_size'] = len(result['body'])
 
     parts = result.get("parts", [])
@@ -213,7 +237,13 @@ if __name__ == '__main__':
                            help="Number of shards for ES index")
 
     tornado.options.define("index_bodies", type=bool, default=False,
-                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and 'body_size'")
+                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body', 'body_size' and 'body_filenames' for any multi-part attachments")
+
+    tornado.options.define("index_bodies_ignore_content_types", default="application,image",
+                           help="If --index-bodies enabled, optional list of body 'Content-Type' header keywords to match to ignore and skip decoding/indexing. For all ignored parts, the content type will be added to the indexed field 'body_ignored_content_types'")
+
+    tornado.options.define("index_bodies_html_parser",  default="html.parser",
+                           help="The BeautifulSoup parser to use for HTML/CSS/JS stripping. Valid values 'html.parser', 'lxml', 'html5lib'")
 
     tornado.options.parse_command_line()
 

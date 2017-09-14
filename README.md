@@ -18,7 +18,7 @@ Set up [Elasticsearch](http://ohardt.us/es-install) and make sure it's running a
 
 I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado chardet` to install Tornado and chardet.
 
-You may also need to `pip install beautifulsoup4`, for the stripping HTML/JS/CSS via the body indexing flag: `--index_bodies`
+You may also need to `pip install beautifulsoup4 lxml html5lib`, for the stripping HTML/JS/CSS via the body indexing flag: `--index_bodies`
 
 
 
