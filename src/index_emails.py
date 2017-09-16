@@ -87,15 +87,34 @@ def upload_batch(upload_data):
         upload_data_txt += json.dumps(cmd) + "\n"
         upload_data_txt += json.dumps(item) + "\n"
 
-    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=tornado.options.options.es_http_timeout_seconds)
-    response = http_client.fetch(request)
-    result = json.loads(response.body)
+    upload_successful = False
+    upload_attempts = 0
+    res_txt = ""
+    while ((not upload_successful) and (upload_attempts < tornado.options.options.es_upload_attempts)):
 
-    global total_uploaded
-    total_uploaded += len(upload_data)
-    res_txt = "OK" if not result['errors'] else "FAILED"
-    logging.info("Upload: %s - upload took: %4dms, total messages uploaded: %6d" % (res_txt, result['took'], total_uploaded))
+        upload_attempts = upload_attempts + 1
 
+        try:
+            request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=tornado.options.options.es_http_timeout_seconds)
+            response = http_client.fetch(request)
+            result = json.loads(response.body)
+
+            if result['errors']:
+                logging.error("upload attempt: %d FAILED: %s" % (upload_attempts,response.body))
+
+            else:
+                upload_successful = True
+                res_txt = "OK"
+        except:
+            logging.error("upload attempt: %d FAILED: %s %s" % (upload_attempts,sys.exc_info()[0],sys.exc_info()[1]))
+
+
+    if upload_successful:
+        global total_uploaded
+        total_uploaded += len(upload_data)
+        logging.info("Upload: %s - upload took: %4dms, total messages uploaded: %6d" % (res_txt, result['took'], total_uploaded))
+    else:
+        logging.error("All upload attempts failed, see previous error messages")
 
 def normalize_email(email_in):
     parsed = email.utils.parseaddr(email_in)
@@ -262,6 +281,9 @@ if __name__ == '__main__':
 
     tornado.options.define("es_document_type",  default="email",
                           help="The document type that all emails will be indexed as")
+
+    tornado.options.define("es_upload_attempts",  default=1, type=int,
+                          help="Total number of es bulk upload attempts for each batch-size to attempt before giving up w/ error")
 
     tornado.options.define("tags", default="",
                           help="Custom static key1=val1,key2=val2 pairs to tag all entries with")
