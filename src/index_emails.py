@@ -39,7 +39,7 @@ def strip_html_css_js(msg):
 def delete_index():
     try:
         url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
-        request = HTTPRequest(url, method="DELETE", request_timeout=240)
+        request = HTTPRequest(url, method="DELETE", request_timeout=tornado.options.options.es_http_timeout_seconds)
         body = {"refresh": True}
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
@@ -54,7 +54,7 @@ def create_index():
             "number_of_replicas": 0
         },
         "mappings": {
-            "email": {
+            tornado.options.options.es_document_type: {
                 "_source": {"enabled": True},
                 "properties": {
                     "from": {"type": "string", "index": "not_analyzed"},
@@ -72,7 +72,7 @@ def create_index():
     body = json.dumps(schema)
     url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
     try:
-        request = HTTPRequest(url, method="PUT", body=body, request_timeout=240)
+        request = HTTPRequest(url, method="PUT", body=body, request_timeout=tornado.options.options.es_http_timeout_seconds)
         response = http_client.fetch(request)
         logging.info('Create index done   %s' % response.body)
     except:
@@ -83,11 +83,11 @@ total_uploaded = 0
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
-        cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
+        cmd = {'index': {'_index': tornado.options.options.index_name, '_type': tornado.options.options.es_document_type, '_id': item['message-id']}}
         upload_data_txt += json.dumps(cmd) + "\n"
         upload_data_txt += json.dumps(item) + "\n"
 
-    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240)
+    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=tornado.options.options.es_http_timeout_seconds)
     response = http_client.fetch(request)
     result = json.loads(response.body)
 
@@ -175,6 +175,13 @@ def convert_msg_to_json(msg):
         # log body size
         result['body_size'] = len(result['body'])
 
+    # tags?
+    if tornado.options.options.tags:
+        kv_pairs = tornado.options.options.tags.split(",")
+        for kv_pair in kv_pairs:
+            kv = kv_pair.split("=")
+            result[kv[0]] = kv[1]
+
     parts = result.get("parts", [])
     result['content_size_total'] = 0
     for part in parts:
@@ -249,6 +256,15 @@ if __name__ == '__main__':
 
     tornado.options.define("index_bodies_html_parser",  default="html.parser",
                            help="The BeautifulSoup parser to use for HTML/CSS/JS stripping. Valid values 'html.parser', 'lxml', 'html5lib'")
+
+    tornado.options.define("es_http_timeout_seconds",  default=240, type=int,
+                           help="The default elasticsearch http operation request timeout, in seconds")
+
+    tornado.options.define("es_document_type",  default="email",
+                          help="The document type that all emails will be indexed as")
+
+    tornado.options.define("tags", default="",
+                          help="Custom static key1=val1,key2=val2 pairs to tag all entries with")
 
     tornado.options.parse_command_line()
 
