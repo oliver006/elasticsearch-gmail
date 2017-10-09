@@ -123,10 +123,11 @@ def normalize_email(email_in):
 
 def content_type_is_ignored(content_type):
     if tornado.options.options.index_bodies_ignore_content_types:
+        content_type_lcase = content_type.lower()
         ignore_types = tornado.options.options.index_bodies_ignore_content_types.split(",")
         for to_ignore in ignore_types:
             if to_ignore:
-                if to_ignore.strip().lower() in content_type.lower():
+                if to_ignore.strip().lower() in content_type_lcase:
                     return True
     return False
 
@@ -200,7 +201,8 @@ def convert_msg_to_json(msg):
         kv_pairs = tornado.options.options.tags.split(",")
         for kv_pair in kv_pairs:
             kv = kv_pair.split("=")
-            result[kv[0]] = kv[1]
+            if len(kv) == 2:
+                result[kv[0]] = kv[1]
 
     parts = result.get("parts", [])
     result['content_size_total'] = 0
