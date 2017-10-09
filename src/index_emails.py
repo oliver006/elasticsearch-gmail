@@ -14,6 +14,7 @@ from AmazonEmailParser import AmazonEmailParser
 from SteamEmailParser import SteamEmailParser
 from bs4 import BeautifulSoup
 import logging
+import sys
 
 http_client = HTTPClient()
 
@@ -22,7 +23,7 @@ DEFAULT_ES_URL = "http://localhost:9200"
 DEFAULT_INDEX_NAME = "gmail"
 
 def strip_html_css_js(msg):
-    soup = BeautifulSoup(msg,"html.parser") # create a new bs4 object from the html data loaded
+    soup = BeautifulSoup(msg,tornado.options.options.index_bodies_html_parser) # create a new bs4 object from the html data loaded
     for script in soup(["script", "style"]): # remove all javascript and stylesheet code
         script.extract()
     # get text
@@ -38,7 +39,7 @@ def strip_html_css_js(msg):
 def delete_index():
     try:
         url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
-        request = HTTPRequest(url, method="DELETE", request_timeout=240)
+        request = HTTPRequest(url, method="DELETE", request_timeout=tornado.options.options.es_http_timeout_seconds)
         body = {"refresh": True}
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
@@ -49,11 +50,12 @@ def create_index():
 
     schema = {
         "settings": {
+            "index.mapping.total_fields.limit": 2000,
             "number_of_shards": tornado.options.options.num_of_shards,
             "number_of_replicas": 0
         },
         "mappings": {
-            "email": {
+            tornado.options.options.es_document_type: {
                 "_source": {"enabled": True},
                 "properties": {
                     "from": {"type": "string", "index": "not_analyzed"},
@@ -71,7 +73,7 @@ def create_index():
     body = json.dumps(schema)
     url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
     try:
-        request = HTTPRequest(url, method="PUT", body=body, request_timeout=240)
+        request = HTTPRequest(url, method="PUT", body=body, request_timeout=tornado.options.options.es_http_timeout_seconds)
         response = http_client.fetch(request)
         logging.info('Create index done   %s' % response.body)
     except:
@@ -82,24 +84,75 @@ total_uploaded = 0
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
-        cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
+        cmd = {'index': {'_index': tornado.options.options.index_name, '_type': tornado.options.options.es_document_type, '_id': item['message-id']}}
         upload_data_txt += json.dumps(cmd) + "\n"
         upload_data_txt += json.dumps(item) + "\n"
 
-    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240)
-    response = http_client.fetch(request)
-    result = json.loads(response.body)
+    upload_successful = False
+    upload_attempts = 0
+    res_txt = ""
+    while ((not upload_successful) and (upload_attempts < tornado.options.options.es_upload_attempts)):
 
-    global total_uploaded
-    total_uploaded += len(upload_data)
-    res_txt = "OK" if not result['errors'] else "FAILED"
-    logging.info("Upload: %s - upload took: %4dms, total messages uploaded: %6d" % (res_txt, result['took'], total_uploaded))
+        upload_attempts = upload_attempts + 1
 
+        try:
+            request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=tornado.options.options.es_http_timeout_seconds)
+            response = http_client.fetch(request)
+            result = json.loads(response.body)
+
+            if result['errors']:
+                logging.error("upload attempt: %d FAILED: %s" % (upload_attempts,response.body))
+
+            else:
+                upload_successful = True
+                res_txt = "OK"
+        except:
+            logging.error("upload attempt: %d FAILED: %s %s" % (upload_attempts,sys.exc_info()[0],sys.exc_info()[1]))
+
+
+    if upload_successful:
+        global total_uploaded
+        total_uploaded += len(upload_data)
+        logging.info("Upload: %s - upload took: %4dms, total messages uploaded: %6d" % (res_txt, result['took'], total_uploaded))
+    else:
+        logging.error("All upload attempts failed, see previous error messages")
 
 def normalize_email(email_in):
     parsed = email.utils.parseaddr(email_in)
     return parsed[1]
 
+def content_type_is_ignored(content_type):
+    if tornado.options.options.index_bodies_ignore_content_types:
+        content_type_lcase = content_type.lower()
+        ignore_types = tornado.options.options.index_bodies_ignore_content_types.split(",")
+        for to_ignore in ignore_types:
+            if to_ignore:
+                if to_ignore.strip().lower() in content_type_lcase:
+                    return True
+    return False
+
+def process_msg_body(msg,result):
+    if msg.is_multipart():
+        for mpart in msg.get_payload(): # don't decode
+            if mpart is not None: # recurse
+                process_msg_body(mpart,result)
+
+    else:
+        # log filename of any part dispostiion
+        if msg.get_filename():
+            result['body_filenames'] += (msg.get_filename() + " ")
+
+        # ignore the content-type?
+        if content_type_is_ignored(msg.get_content_type()):
+            result['body_ignored_content_types'] += (msg.get_content_type() + " ")
+        else:
+            decoded_payload = msg.get_payload(decode=True)
+            if decoded_payload:
+                try:
+                    result['body'] += strip_html_css_js(decoded_payload)
+                except:
+                    logging.error("failed to strip_html_css_js(decoded_payload): %s %s" % (sys.exc_info()[0],sys.exc_info()[1]))
+                    result['body'] += decoded_payload
 
 def convert_msg_to_json(msg):
     result = {'parts': []}
@@ -135,16 +188,21 @@ def convert_msg_to_json(msg):
     # Bodies...
     if tornado.options.options.index_bodies:
         result['body'] = ''
-        if msg.is_multipart():
-            for mpart in msg.get_payload():
-                if mpart is not None:
-                    mpart_payload = mpart.get_payload(decode=True)
-                    if mpart_payload is not None:
-                        result['body'] += strip_html_css_js(mpart_payload)
-        else:
-            result['body'] = strip_html_css_js(msg.get_payload(decode=True))
+        result['body_ignored_content_types'] = ''
+        result['body_filenames'] = ''
 
+        process_msg_body(msg,result)
+
+        # log body size
         result['body_size'] = len(result['body'])
+
+    # tags?
+    if tornado.options.options.tags:
+        kv_pairs = tornado.options.options.tags.split(",")
+        for kv_pair in kv_pairs:
+            kv = kv_pair.split("=")
+            if len(kv) == 2:
+                result[kv[0]] = kv[1]
 
     parts = result.get("parts", [])
     result['content_size_total'] = 0
@@ -213,7 +271,25 @@ if __name__ == '__main__':
                            help="Number of shards for ES index")
 
     tornado.options.define("index_bodies", type=bool, default=False,
-                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and 'body_size'")
+                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body', 'body_size' and 'body_filenames' for any multi-part attachments")
+
+    tornado.options.define("index_bodies_ignore_content_types", default="application,image",
+                           help="If --index-bodies enabled, optional list of body 'Content-Type' header keywords to match to ignore and skip decoding/indexing. For all ignored parts, the content type will be added to the indexed field 'body_ignored_content_types'")
+
+    tornado.options.define("index_bodies_html_parser",  default="html.parser",
+                           help="The BeautifulSoup parser to use for HTML/CSS/JS stripping. Valid values 'html.parser', 'lxml', 'html5lib'")
+
+    tornado.options.define("es_http_timeout_seconds",  default=240, type=int,
+                           help="The default elasticsearch http operation request timeout, in seconds")
+
+    tornado.options.define("es_document_type",  default="email",
+                          help="The document type that all emails will be indexed as")
+
+    tornado.options.define("es_upload_attempts",  default=1, type=int,
+                          help="Total number of es bulk upload attempts for each batch-size to attempt before giving up w/ error")
+
+    tornado.options.define("tags", default="",
+                          help="Custom static key1=val1,key2=val2 pairs to tag all entries with")
 
     tornado.options.parse_command_line()
 
