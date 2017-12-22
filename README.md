@@ -14,7 +14,7 @@ __Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the 
 
 #### Prerequisites
 
-Set up [Elasticsearch](http://ohardt.us/es-install) and make sure it's running at [http://localhost:9200](http://localhost:9200)
+Set up [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/guide/current/running-elasticsearch.html) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
 I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado chardet` to install Tornado and chardet.
 
@@ -24,7 +24,7 @@ You may also need to `pip install beautifulsoup4`, for the stripping HTML/JS/CSS
 
 #### Aight, where do we start?
 
-First, go [here](http://ohardt.us/download-gmail-mailbox) and download your Gmail mailbox, depending on the amount of emails you have accumulated this might take a while.
+First, go [here](https://www.google.com/settings/takeout/custom/gmail) and download your Gmail mailbox, depending on the amount of emails you have accumulated this might take a while.
 
 The downloaded archive is in the [mbox format](http://en.wikipedia.org/wiki/Mbox) and Python provides libraries to work with the mbox format so that's easy.
 
