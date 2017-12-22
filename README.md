@@ -115,7 +115,7 @@ def upload_item_to_es(item):
 
 ```
 
-However, Elasticsearch provides a better method for importing large chunks of data: [bulk indexing](http://ohardt.us/es-bulk-indexing)
+However, Elasticsearch provides a better method for importing large chunks of data: [bulk indexing](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html)
 Instead of making a HTTP request per document and indexing individually, we batch them in chunks of eg. 1000 documents and then index them.<br>
 Bulk messages are of the format:
 
