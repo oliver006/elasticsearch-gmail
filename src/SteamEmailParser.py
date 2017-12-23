@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import json
 import re
 
@@ -54,8 +56,8 @@ class SteamEmailParser(object):
                 costTotal -= cost
 
             if costTotal != 0:
-                print "Warning order not parsed correctly, order items may be missing, or promotion may have been applied."
-                print email['order_details']
-                print body
+                print("Warning order not parsed correctly, order items may be missing, or promotion may have been applied.")
+                print(email['order_details'])
+                print(body)
 
         return email
