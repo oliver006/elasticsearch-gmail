@@ -103,7 +103,7 @@ def normalize_email(email_in):
 
 def convert_msg_to_json(msg):
     result = {'parts': []}
-    if not 'message-id' in msg:
+    if 'message-id' not in msg:
         return None
 
     for (k, v) in msg.items():
@@ -159,7 +159,6 @@ def load_from_file():
     if tornado.options.options.init:
         delete_index()
     create_index()
-
 
     if tornado.options.options.skip:
         logging.info("Skipping first %d messages from mbox file" % tornado.options.options.skip)
