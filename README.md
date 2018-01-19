@@ -16,10 +16,11 @@ __Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the 
 
 Set up [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/guide/current/running-elasticsearch.html) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
-I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Run `pip install tornado chardet` to install Tornado and chardet.
+I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Also `beautifulsoup4` for the stripping HTML/JS/CSS (if you want to use the body indexing flag).
 
-You may also need to `pip install beautifulsoup4`, for the stripping HTML/JS/CSS via the body indexing flag: `--index_bodies`
+Install the dependencies by running:
 
+`pip install -r requirements.txt`
 
 
 #### Aight, where do we start?
@@ -283,9 +284,9 @@ Result:
     "key_as_string" : "2004-01-01T00:00:00.000Z",
     "key" : 1072915200000,
     "doc_count" : 585
-  }, {  
+  }, {
 ...
-  }, {  
+  }, {
     "key_as_string" : "2013-01-01T00:00:00.000Z",
     "key" : 1356998400000,
     "doc_count" : 12832
