@@ -43,7 +43,7 @@ print "Done!"
 
 #### Ok, tell me more about the details
 
-The full Python code is here: [src/update.py](src/index_emails.py)
+The full Python code is here: [src/index_emails.py](src/index_emails.py)
 
 
 ##### Turn mbox into JSON
