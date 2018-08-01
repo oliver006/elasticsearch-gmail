@@ -38,7 +38,7 @@ def strip_html_css_js(msg):
 def delete_index():
     try:
         url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
-        request = HTTPRequest(url, method="DELETE", request_timeout=240)
+        request = HTTPRequest(url, method="DELETE", request_timeout=240, headers={"Content-Type": "application/json"})
         body = {"refresh": True}
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
@@ -71,7 +71,7 @@ def create_index():
     body = json.dumps(schema)
     url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
     try:
-        request = HTTPRequest(url, method="PUT", body=body, request_timeout=240)
+        request = HTTPRequest(url, method="PUT", body=body, request_timeout=240, headers={"Content-Type": "application/json"})
         response = http_client.fetch(request)
         logging.info('Create index done   %s' % response.body)
     except:
@@ -86,7 +86,7 @@ def upload_batch(upload_data):
         upload_data_txt += json.dumps(cmd) + "\n"
         upload_data_txt += json.dumps(item) + "\n"
 
-    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240)
+    request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240, headers={"Content-Type": "application/json"})
     response = http_client.fetch(request)
     result = json.loads(response.body)
 
