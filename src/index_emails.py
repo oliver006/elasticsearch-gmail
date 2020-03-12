@@ -21,9 +21,10 @@ DEFAULT_BATCH_SIZE = 500
 DEFAULT_ES_URL = "http://localhost:9200"
 DEFAULT_INDEX_NAME = "gmail"
 
+
 def strip_html_css_js(msg):
-    soup = BeautifulSoup(msg,"html.parser") # create a new bs4 object from the html data loaded
-    for script in soup(["script", "style"]): # remove all javascript and stylesheet code
+    soup = BeautifulSoup(msg, "html.parser")  # create a new bs4 object from the html data loaded
+    for script in soup(["script", "style"]):  # remove all javascript and stylesheet code
         script.extract()
     # get text
     text = soup.get_text()
@@ -35,6 +36,7 @@ def strip_html_css_js(msg):
     text = '\n'.join(chunk for chunk in chunks if chunk)
     return text
 
+
 def delete_index():
     try:
         url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
@@ -44,6 +46,7 @@ def delete_index():
         logging.info('Delete index done   %s' % response.body)
     except:
         pass
+
 
 def create_index():
 
@@ -79,6 +82,8 @@ def create_index():
 
 
 total_uploaded = 0
+
+
 def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
@@ -107,7 +112,7 @@ def convert_msg_to_json(msg):
         return None
 
     for (k, v) in msg.items():
-        result[k.lower()] = v.decode('utf-8', 'ignore')
+        result[k.lower()] = v
 
     for k in ['to', 'cc', 'bcc']:
         if not result.get(k):
@@ -166,7 +171,10 @@ def load_from_file():
     count = 0
     upload_data = list()
     logging.info("Starting import from file %s" % tornado.options.options.infile)
-    mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
+    # mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
+
+    # removed the above UnixMailbox which is not supported in python 3.x and replaced it with mailbox.mbox class
+    mbox = mailbox.mbox(tornado.options.options.infile)
 
     emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
 
@@ -175,6 +183,7 @@ def load_from_file():
         if count < tornado.options.options.skip:
             continue
         item = convert_msg_to_json(msg)
+
         if item:
             upload_data.append(item)
             if len(upload_data) == tornado.options.options.batch_size:
@@ -211,8 +220,9 @@ if __name__ == '__main__':
     tornado.options.define("num_of_shards", type=int, default=2,
                            help="Number of shards for ES index")
 
-    tornado.options.define("index_bodies", type=bool, default=False,
-                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and 'body_size'")
+    tornado.options.define("index_bodies", type=bool, default=True,
+                           help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and \
+                                    'body_size'")
 
     tornado.options.parse_command_line()
 
