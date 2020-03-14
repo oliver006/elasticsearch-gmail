@@ -1,6 +1,7 @@
 Elasticsearch For Beginners: Indexing your Gmail Inbox
 =======================
 
+[![Build Status](https://cloud.drone.io/api/badges/oliver006/elasticsearch-gmail/status.svg)](https://cloud.drone.io/oliver006/elasticsearch-gmail)
 
 
 #### What's this all about?
@@ -9,25 +10,41 @@ I recently looked at my Gmail inbox and noticed that I have well over 50k emails
 
 Goal of this tutorial is to load an entire Gmail inbox into Elasticsearch using bulk indexing and then start querying the cluster to get a better picture of what's going on.
 
-__Related tutorial:__ [Index and Search Hacker News using Elasticsearch and the HN API](https://github.com/oliver006/elasticsearch-hn)
-
 
 #### Prerequisites
 
 Set up [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/guide/current/running-elasticsearch.html) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
+A quick way to run Elasticsearch is using Docker: (the cors settingsa aren't really needed but come in handy if you want to use e.g. [dejavu](https://dejavu.appbase.io/) to explore the index)
+```
+docker run --name es -d -p 9200:9200 -e http.port=9200 -e http.cors.enabled=true -e 'http.cors.allow-origin=*' -e http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization -e http.cors.allow-credentials=true -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:7.6.1
+```
+
 I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Also `beautifulsoup4` for the stripping HTML/JS/CSS (if you want to use the body indexing flag).
 
 Install the dependencies by running:
 
-`pip install -r requirements.txt`
+`pip3 install -r requirements.txt`
 
 
 #### Aight, where do we start?
 
 First, go [here](https://www.google.com/settings/takeout/custom/gmail) and download your Gmail mailbox, depending on the amount of emails you have accumulated this might take a while.
+There's also a small `sample.mbox` file included in the repo for you to play around with while you're waiting for Google to prepare your download.
 
 The downloaded archive is in the [mbox format](http://en.wikipedia.org/wiki/Mbox) and Python provides libraries to work with the mbox format so that's easy.
+
+You can run the code (assuming Elasticsearch is running at localhost:9200) with the sammple mbox file like this:
+```
+$ python3 src/index_emails.py --infile=sample.mbox
+[I index_emails:173] Starting import from file sample.mbox
+[I index_emails:101] Upload: OK - upload took: 1033ms, total messages uploaded:      3
+[I index_emails:197] Import done - total count 16
+$
+```
+
+
+#### The Source Code
 
 The overall program will look something like this:
 
@@ -342,4 +359,4 @@ GET _search
 
 #### Feedback
 
-Open pull requests, issues or email me at o@21zoo.com
+Open a pull requests or an issue!
