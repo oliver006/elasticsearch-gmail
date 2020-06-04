@@ -88,8 +88,14 @@ def upload_batch(upload_data):
     upload_data_txt = ""
     for item in upload_data:
         cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
-        upload_data_txt += json.dumps(cmd) + "\n"
-        upload_data_txt += json.dumps(item) + "\n"
+        try:
+            json_cmd = json.dumps(cmd) + "\n"
+            json_item = json.dumps(item) + "\n"
+        except:
+            logging.warn('Skipping mail with message id %s because of exception converting to JSON (invalid characters?).' % item['message-id'])
+            continue
+        upload_data_txt += json_cmd
+        upload_data_txt += json_item
 
     request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240, headers={"Content-Type": "application/json"})
     response = http_client.fetch(request)
