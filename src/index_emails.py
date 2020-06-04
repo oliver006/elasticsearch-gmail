@@ -107,6 +107,15 @@ def normalize_email(email_in):
 
 
 def convert_msg_to_json(msg):
+
+    def parse_message_parts(current_msg):
+        if current_msg.is_multipart():
+            for mpart in current_msg.get_payload():
+                if mpart is not None:
+                    parse_message_parts(mpart)
+        else:
+            result['body'] += strip_html_css_js(current_msg.get_payload(decode=True))
+
     result = {'parts': []}
     if 'message-id' not in msg:
         return None
@@ -140,15 +149,7 @@ def convert_msg_to_json(msg):
     # Bodies...
     if tornado.options.options.index_bodies:
         result['body'] = ''
-        if msg.is_multipart():
-            for mpart in msg.get_payload():
-                if mpart is not None:
-                    mpart_payload = mpart.get_payload(decode=True)
-                    if mpart_payload is not None:
-                        result['body'] += strip_html_css_js(mpart_payload)
-        else:
-            result['body'] = strip_html_css_js(msg.get_payload(decode=True))
-
+        parse_message_parts(msg)
         result['body_size'] = len(result['body'])
 
     parts = result.get("parts", [])
