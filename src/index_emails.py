@@ -166,17 +166,19 @@ def load_from_file():
     create_index()
 
     if tornado.options.options.skip:
-        logging.info("Skipping first %d messages from mbox file" % tornado.options.options.skip)
+        logging.info("Skipping first %d messages" % tornado.options.options.skip)
 
     count = 0
     upload_data = list()
-    logging.info("Starting import from file %s" % tornado.options.options.infile)
-    # mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
 
-    # removed the above UnixMailbox which is not supported in python 3.x and replaced it with mailbox.mbox class
-    mbox = mailbox.mbox(tornado.options.options.infile)
+    if tornado.options.options.infile:
+        logging.info("Starting import from file %s" % tornado.options.options.infile)
+        mbox = mailbox.mbox(tornado.options.options.infile)
+    else:
+        logging.info("Starting import from directory %s" % tornado.options.options.indir)
+        mbox = mailbox.MH(tornado.options.options.indir, factory=None, create=False)
 
-    emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
+    #emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
 
     for msg in mbox:
         count += 1
@@ -206,7 +208,10 @@ if __name__ == '__main__':
                            help="Name of the index to store your messages")
 
     tornado.options.define("infile", type=str, default=None,
-                           help="The mbox input file")
+                           help="Input file (supported mailbox format: mbox)")
+
+    tornado.options.define("indir", type=str, default=None,
+                           help="Input directory (supported mailbox format: mh)")
 
     tornado.options.define("init", type=bool, default=False,
                            help="Force deleting and re-initializing the Elasticsearch index")
@@ -215,7 +220,7 @@ if __name__ == '__main__':
                            help="Elasticsearch bulk index batch size")
 
     tornado.options.define("skip", type=int, default=0,
-                           help="Number of messages to skip from the mbox file")
+                           help="Number of messages to skip from mailbox")
 
     tornado.options.define("num_of_shards", type=int, default=2,
                            help="Number of shards for ES index")
@@ -226,7 +231,8 @@ if __name__ == '__main__':
 
     tornado.options.parse_command_line()
 
-    if tornado.options.options.infile:
+    #Exactly one of {infile, indir} must be set
+    if bool(tornado.options.options.infile) ^ bool(tornado.options.options.indir):
         IOLoop.instance().run_sync(load_from_file)
     else:
         tornado.options.print_help()
