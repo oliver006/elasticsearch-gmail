@@ -163,6 +163,9 @@ def convert_msg_to_json(msg):
     for part in parts:
         result['content_size_total'] += len(part.get('content', ""))
 
+    if not tornado.options.options.index_x_headers:
+        result = {key: result[key] for key in result if not key.startswith("x-")}
+
     return result
 
 
@@ -238,6 +241,9 @@ if __name__ == '__main__':
 
     tornado.options.define("text_only", type=bool, default=False,
                            help='Only parse those message body parts declared as text (ignoring images etc.).')
+
+    tornado.options.define("index_x_headers", type=bool, default=True,
+                           help='Index x-* fields from headers')
 
     tornado.options.parse_command_line()
 
