@@ -39,7 +39,7 @@ def strip_html_css_js(msg):
 
 def delete_index():
     try:
-        url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
+        url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
         request = HTTPRequest(url, method="DELETE", request_timeout=240, headers={"Content-Type": "application/json"})
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
