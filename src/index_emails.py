@@ -133,11 +133,11 @@ def convert_msg_to_json(msg):
     for k in ['to', 'cc', 'bcc']:
         if not result.get(k):
             continue
-        emails_split = result[k].replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
+        emails_split = str(result[k]).replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
         result[k] = [normalize_email(e) for e in emails_split]
 
     if "from" in result:
-        result['from'] = normalize_email(result['from'])
+        result['from'] = normalize_email(str(result['from']))
 
     if "date" in result:
         try:
