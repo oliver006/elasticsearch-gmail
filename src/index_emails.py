@@ -118,7 +118,8 @@ def convert_msg_to_json(msg):
         if current_msg.is_multipart():
             for mpart in current_msg.get_payload():
                 if mpart is not None:
-                    parse_message_parts(mpart)
+                    if not tornado.options.options.text_only or str(mpart.get_content_type()).startswith('text'):
+                        parse_message_parts(mpart)
         else:
             result['body'] += strip_html_css_js(current_msg.get_payload(decode=True))
 
@@ -235,6 +236,9 @@ if __name__ == '__main__':
     tornado.options.define("index_bodies", type=bool, default=True,
                            help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and \
                                     'body_size'")
+
+    tornado.options.define("text_only", type=bool, default=False,
+                           help='Only parse those message body parts declared as text (ignoring images etc.).')
 
     tornado.options.parse_command_line()
 
