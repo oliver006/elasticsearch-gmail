@@ -178,7 +178,6 @@ def load_from_file():
     if tornado.options.options.skip:
         logging.info("Skipping first %d messages" % tornado.options.options.skip)
 
-    count = 0
     upload_data = list()
 
     if tornado.options.options.infile:
@@ -190,10 +189,11 @@ def load_from_file():
 
     #emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
 
-    for msg in mbox:
-        count += 1
-        if count < tornado.options.options.skip:
-            continue
+    #Skipping on keys to avoid expensive read operations on skipped messages
+    msgkeys = mbox.keys()[tornado.options.options.skip:]
+
+    for msgkey in msgkeys:
+        msg = mbox[msgkey]
         item = convert_msg_to_json(msg)
 
         if item:
@@ -206,7 +206,7 @@ def load_from_file():
     if upload_data:
         upload_batch(upload_data)
 
-    logging.info("Import done - total count %d" % count)
+    logging.info("Import done - total count %d" % len(mbox.keys()))
 
 
 if __name__ == '__main__':
