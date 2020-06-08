@@ -84,6 +84,9 @@ total_uploaded = 0
 
 
 def upload_batch(upload_data):
+    if tornado.options.options.dry_run:
+        logging.info("Dry run, not uploading")
+        return
     upload_data_txt = ""
     for item in upload_data:
         cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
@@ -181,10 +184,10 @@ def load_from_file():
     upload_data = list()
 
     if tornado.options.options.infile:
-        logging.info("Starting import from file %s" % tornado.options.options.infile)
+        logging.info("Starting import from mbox file %s" % tornado.options.options.infile)
         mbox = mailbox.mbox(tornado.options.options.infile)
     else:
-        logging.info("Starting import from directory %s" % tornado.options.options.indir)
+        logging.info("Starting import from MH directory %s" % tornado.options.options.indir)
         mbox = mailbox.MH(tornado.options.options.indir, factory=None, create=False)
 
     #emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
@@ -218,10 +221,10 @@ if __name__ == '__main__':
                            help="Name of the index to store your messages")
 
     tornado.options.define("infile", type=str, default=None,
-                           help="Input file (supported mailbox format: mbox)")
+                           help="Input file (supported mailbox format: mbox). Mutually exclusive to --indir")
 
     tornado.options.define("indir", type=str, default=None,
-                           help="Input directory (supported mailbox format: mh)")
+                           help="Input directory (supported mailbox format: mh). Mutually exclusive to --infile")
 
     tornado.options.define("init", type=bool, default=False,
                            help="Force deleting and re-initializing the Elasticsearch index")
@@ -240,10 +243,13 @@ if __name__ == '__main__':
                                     'body_size'")
 
     tornado.options.define("text_only", type=bool, default=False,
-                           help='Only parse those message body parts declared as text (ignoring images etc.).')
+                           help='Only parse message body multiparts declared as text (ignoring images etc.).')
 
     tornado.options.define("index_x_headers", type=bool, default=True,
                            help='Index x-* fields from headers')
+
+    tornado.options.define("dry_run", type=bool, default=False,
+                           help='Do not upload to Elastic Search, just process messages')
 
     tornado.options.parse_command_line()
 
