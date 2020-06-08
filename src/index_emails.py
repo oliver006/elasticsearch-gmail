@@ -120,7 +120,8 @@ def convert_msg_to_json(msg):
         if current_msg.is_multipart():
             for mpart in current_msg.get_payload():
                 if mpart is not None:
-                    if not tornado.options.options.text_only or str(mpart.get_content_type()).startswith('text'):
+                    content_type = str(mpart.get_content_type())
+                    if not tornado.options.options.text_only or (content_type.startswith("text") or content_type.startswith("multipart")):
                         parse_message_parts(mpart)
         else:
             result['body'] += strip_html_css_js(current_msg.get_payload(decode=True))
