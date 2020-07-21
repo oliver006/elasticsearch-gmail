@@ -191,7 +191,7 @@ def load_from_file():
         logging.info("Starting import from MH directory %s" % tornado.options.options.indir)
         mbox = mailbox.MH(tornado.options.options.indir, factory=None, create=False)
 
-    #emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
+    emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
 
     #Skipping on keys to avoid expensive read operations on skipped messages
     msgkeys = mbox.keys()[tornado.options.options.skip:]
