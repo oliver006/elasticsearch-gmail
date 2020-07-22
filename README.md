@@ -1,4 +1,4 @@
-Elasticsearch For Beginners: Indexing your Gmail Inbox
+Elasticsearch For Beginners: Indexing your Gmail Inbox (and more: Supports any mbox and MH mailboxes)
 =======================
 
 [![Build Status](https://cloud.drone.io/api/badges/oliver006/elasticsearch-gmail/status.svg)](https://cloud.drone.io/oliver006/elasticsearch-gmail)
@@ -43,13 +43,14 @@ $ python3 src/index_emails.py --infile=sample.mbox
 $
 ```
 
+Note: All examples focus on Gmail inboxes. Substitute any `--infile=` parameters with `--indir=` pointing to an MH directory to make them work with MH mailboxes instead.
 
 #### The Source Code
 
 The overall program will look something like this:
 
 ```python
-mbox = mailbox.UnixMailbox(open('emails.mbox', 'rb'), email.message_from_file)
+mbox = mailbox.mbox('emails.mbox') // or mailbox.MH('inbox/')
 
 for msg in mbox:
     item = convert_msg_to_json(msg)
@@ -63,9 +64,9 @@ print "Done!"
 The full Python code is here: [src/index_emails.py](src/index_emails.py)
 
 
-##### Turn mbox into JSON
+##### Turn mailbox into JSON
 
-First, we got to turn the mbox format messages into JSON so we can insert it into Elasticsearch. [Here](http://nbviewer.ipython.org/github/furukama/Mining-the-Social-Web-2nd-Edition/blob/master/ipynb/Chapter%206%20-%20Mining%20Mailboxes.ipynb) is some sample code that was very useful when it came to normalizing and cleaning up the data.
+First, we got to turn the messages into JSON so we can insert it into Elasticsearch. [Here](http://nbviewer.ipython.org/github/furukama/Mining-the-Social-Web-2nd-Edition/blob/master/ipynb/Chapter%206%20-%20Mining%20Mailboxes.ipynb) is some sample code that was very useful when it came to normalizing and cleaning up the data.
 
 A good first step:
 

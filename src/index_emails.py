@@ -9,9 +9,6 @@ import mailbox
 import email
 import quopri
 import chardet
-from DelegatingEmailParser import DelegatingEmailParser
-from AmazonEmailParser import AmazonEmailParser
-from SteamEmailParser import SteamEmailParser
 from bs4 import BeautifulSoup
 import logging
 
@@ -39,9 +36,8 @@ def strip_html_css_js(msg):
 
 def delete_index():
     try:
-        url = "%s/%s?refresh=true" % (tornado.options.options.es_url, tornado.options.options.index_name)
+        url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
         request = HTTPRequest(url, method="DELETE", request_timeout=240, headers={"Content-Type": "application/json"})
-        body = {"refresh": True}
         response = http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
     except:
@@ -85,11 +81,20 @@ total_uploaded = 0
 
 
 def upload_batch(upload_data):
+    if tornado.options.options.dry_run:
+        logging.info("Dry run, not uploading")
+        return
     upload_data_txt = ""
     for item in upload_data:
         cmd = {'index': {'_index': tornado.options.options.index_name, '_type': 'email', '_id': item['message-id']}}
-        upload_data_txt += json.dumps(cmd) + "\n"
-        upload_data_txt += json.dumps(item) + "\n"
+        try:
+            json_cmd = json.dumps(cmd) + "\n"
+            json_item = json.dumps(item) + "\n"
+        except:
+            logging.warn('Skipping mail with message id %s because of exception converting to JSON (invalid characters?).' % item['message-id'])
+            continue
+        upload_data_txt += json_cmd
+        upload_data_txt += json_item
 
     request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240, headers={"Content-Type": "application/json"})
     response = http_client.fetch(request)
@@ -107,6 +112,17 @@ def normalize_email(email_in):
 
 
 def convert_msg_to_json(msg):
+
+    def parse_message_parts(current_msg):
+        if current_msg.is_multipart():
+            for mpart in current_msg.get_payload():
+                if mpart is not None:
+                    content_type = str(mpart.get_content_type())
+                    if not tornado.options.options.text_only or (content_type.startswith("text") or content_type.startswith("multipart")):
+                        parse_message_parts(mpart)
+        else:
+            result['body'] += strip_html_css_js(current_msg.get_payload(decode=True))
+
     result = {'parts': []}
     if 'message-id' not in msg:
         return None
@@ -117,11 +133,11 @@ def convert_msg_to_json(msg):
     for k in ['to', 'cc', 'bcc']:
         if not result.get(k):
             continue
-        emails_split = result[k].replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
+        emails_split = str(result[k]).replace('\n', '').replace('\t', '').replace('\r', '').replace(' ', '').encode('utf8').decode('utf-8', 'ignore').split(',')
         result[k] = [normalize_email(e) for e in emails_split]
 
     if "from" in result:
-        result['from'] = normalize_email(result['from'])
+        result['from'] = normalize_email(str(result['from']))
 
     if "date" in result:
         try:
@@ -140,21 +156,16 @@ def convert_msg_to_json(msg):
     # Bodies...
     if tornado.options.options.index_bodies:
         result['body'] = ''
-        if msg.is_multipart():
-            for mpart in msg.get_payload():
-                if mpart is not None:
-                    mpart_payload = mpart.get_payload(decode=True)
-                    if mpart_payload is not None:
-                        result['body'] += strip_html_css_js(mpart_payload)
-        else:
-            result['body'] = strip_html_css_js(msg.get_payload(decode=True))
-
+        parse_message_parts(msg)
         result['body_size'] = len(result['body'])
 
     parts = result.get("parts", [])
     result['content_size_total'] = 0
     for part in parts:
         result['content_size_total'] += len(part.get('content', ""))
+
+    if not tornado.options.options.index_x_headers:
+        result = {key: result[key] for key in result if not key.startswith("x-")}
 
     return result
 
@@ -166,22 +177,22 @@ def load_from_file():
     create_index()
 
     if tornado.options.options.skip:
-        logging.info("Skipping first %d messages from mbox file" % tornado.options.options.skip)
+        logging.info("Skipping first %d messages" % tornado.options.options.skip)
 
-    count = 0
     upload_data = list()
-    logging.info("Starting import from file %s" % tornado.options.options.infile)
-    # mbox = mailbox.UnixMailbox(open(tornado.options.options.infile, 'rb'), email.message_from_file)
 
-    # removed the above UnixMailbox which is not supported in python 3.x and replaced it with mailbox.mbox class
-    mbox = mailbox.mbox(tornado.options.options.infile)
+    if tornado.options.options.infile:
+        logging.info("Starting import from mbox file %s" % tornado.options.options.infile)
+        mbox = mailbox.mbox(tornado.options.options.infile)
+    else:
+        logging.info("Starting import from MH directory %s" % tornado.options.options.indir)
+        mbox = mailbox.MH(tornado.options.options.indir, factory=None, create=False)
 
-    emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
+    #Skipping on keys to avoid expensive read operations on skipped messages
+    msgkeys = mbox.keys()[tornado.options.options.skip:]
 
-    for msg in mbox:
-        count += 1
-        if count < tornado.options.options.skip:
-            continue
+    for msgkey in msgkeys:
+        msg = mbox[msgkey]
         item = convert_msg_to_json(msg)
 
         if item:
@@ -194,7 +205,7 @@ def load_from_file():
     if upload_data:
         upload_batch(upload_data)
 
-    logging.info("Import done - total count %d" % count)
+    logging.info("Import done - total count %d" % len(mbox.keys()))
 
 
 if __name__ == '__main__':
@@ -206,7 +217,10 @@ if __name__ == '__main__':
                            help="Name of the index to store your messages")
 
     tornado.options.define("infile", type=str, default=None,
-                           help="The mbox input file")
+                           help="Input file (supported mailbox format: mbox). Mutually exclusive to --indir")
+
+    tornado.options.define("indir", type=str, default=None,
+                           help="Input directory (supported mailbox format: mh). Mutually exclusive to --infile")
 
     tornado.options.define("init", type=bool, default=False,
                            help="Force deleting and re-initializing the Elasticsearch index")
@@ -215,7 +229,7 @@ if __name__ == '__main__':
                            help="Elasticsearch bulk index batch size")
 
     tornado.options.define("skip", type=int, default=0,
-                           help="Number of messages to skip from the mbox file")
+                           help="Number of messages to skip from mailbox")
 
     tornado.options.define("num_of_shards", type=int, default=2,
                            help="Number of shards for ES index")
@@ -224,9 +238,19 @@ if __name__ == '__main__':
                            help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and \
                                     'body_size'")
 
+    tornado.options.define("text_only", type=bool, default=False,
+                           help='Only parse message body multiparts declared as text (ignoring images etc.).')
+
+    tornado.options.define("index_x_headers", type=bool, default=True,
+                           help='Index x-* fields from headers')
+
+    tornado.options.define("dry_run", type=bool, default=False,
+                           help='Do not upload to Elastic Search, just process messages')
+
     tornado.options.parse_command_line()
 
-    if tornado.options.options.infile:
+    #Exactly one of {infile, indir} must be set
+    if bool(tornado.options.options.infile) ^ bool(tornado.options.options.indir):
         IOLoop.instance().run_sync(load_from_file)
     else:
         tornado.options.print_help()
