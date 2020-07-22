@@ -9,9 +9,6 @@ import mailbox
 import email
 import quopri
 import chardet
-from DelegatingEmailParser import DelegatingEmailParser
-from AmazonEmailParser import AmazonEmailParser
-from SteamEmailParser import SteamEmailParser
 from bs4 import BeautifulSoup
 import logging
 
@@ -190,8 +187,6 @@ def load_from_file():
     else:
         logging.info("Starting import from MH directory %s" % tornado.options.options.indir)
         mbox = mailbox.MH(tornado.options.options.indir, factory=None, create=False)
-
-    emailParser = DelegatingEmailParser([AmazonEmailParser(), SteamEmailParser()])
 
     #Skipping on keys to avoid expensive read operations on skipped messages
     msgkeys = mbox.keys()[tornado.options.options.skip:]
