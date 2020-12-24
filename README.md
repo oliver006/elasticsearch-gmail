@@ -15,7 +15,7 @@ Goal of this tutorial is to load an entire Gmail inbox into Elasticsearch using 
 
 Set up [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/guide/current/running-elasticsearch.html) and make sure it's running at [http://localhost:9200](http://localhost:9200)
 
-A quick way to run Elasticsearch is using Docker: (the cors settingsa aren't really needed but come in handy if you want to use e.g. [dejavu](https://dejavu.appbase.io/) to explore the index)
+A quick way to run Elasticsearch is using Docker: (the cors settings aren't really needed but come in handy if you want to use e.g. [dejavu](https://dejavu.appbase.io/) to explore the index)
 ```
 docker run --name es -d -p 9200:9200 -e http.port=9200 -e http.cors.enabled=true -e 'http.cors.allow-origin=*' -e http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization -e http.cors.allow-credentials=true -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:7.6.1
 ```
