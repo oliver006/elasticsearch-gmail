@@ -234,7 +234,7 @@ if __name__ == '__main__':
     tornado.options.define("num_of_shards", type=int, default=2,
                            help="Number of shards for ES index")
 
-    tornado.options.define("index_bodies", type=bool, default=True,
+    tornado.options.define("index_bodies", type=bool, default=False,
                            help="Will index all body content, stripped of HTML/CSS/JS etc. Adds fields: 'body' and \
                                     'body_size'")
 
