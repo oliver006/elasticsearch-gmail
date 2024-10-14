@@ -17,7 +17,7 @@ Set up [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/guide/curre
 
 A quick way to run Elasticsearch is using Docker: (the cors settings aren't really needed but come in handy if you want to use e.g. [dejavu](https://dejavu.appbase.io/) to explore the index)
 ```
-docker run --name es -d -p 9200:9200 -e http.port=9200 -e http.cors.enabled=true -e 'http.cors.allow-origin=*' -e http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization -e http.cors.allow-credentials=true -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:7.6.1
+docker run --name es -d -p 9200:9200 -e http.port=9200 -e http.cors.enabled=true -e 'http.cors.allow-origin=*' -e http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization -e http.cors.allow-credentials=true -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
 ```
 
 I use Python and [Tornado](https://github.com/tornadoweb/tornado/) for the scripts to import and query the data. Also `beautifulsoup4` for the stripping HTML/JS/CSS (if you want to use the body indexing flag).

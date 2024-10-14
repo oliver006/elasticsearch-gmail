@@ -1,4 +1,4 @@
-from tornado.httpclient import HTTPClient, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.ioloop import IOLoop
 import tornado.options
 import json
@@ -12,7 +12,7 @@ import chardet
 from bs4 import BeautifulSoup
 import logging
 
-http_client = HTTPClient()
+http_client = AsyncHTTPClient()
 
 DEFAULT_BATCH_SIZE = 500
 DEFAULT_ES_URL = "http://localhost:9200"
@@ -34,17 +34,17 @@ def strip_html_css_js(msg):
     return text
 
 
-def delete_index():
+async def delete_index():
     try:
         url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
         request = HTTPRequest(url, method="DELETE", request_timeout=240, headers={"Content-Type": "application/json"})
-        response = http_client.fetch(request)
+        response = await http_client.fetch(request)
         logging.info('Delete index done   %s' % response.body)
     except:
         pass
 
 
-def create_index():
+async def create_index():
 
     schema = {
         "settings": {
@@ -71,7 +71,7 @@ def create_index():
     url = "%s/%s" % (tornado.options.options.es_url, tornado.options.options.index_name)
     try:
         request = HTTPRequest(url, method="PUT", body=body, request_timeout=240, headers={"Content-Type": "application/json"})
-        response = http_client.fetch(request)
+        response = await http_client.fetch(request)
         logging.info('Create index done   %s' % response.body)
     except:
         pass
@@ -80,7 +80,7 @@ def create_index():
 total_uploaded = 0
 
 
-def upload_batch(upload_data):
+async def upload_batch(upload_data):
     if tornado.options.options.dry_run:
         logging.info("Dry run, not uploading")
         return
@@ -97,7 +97,7 @@ def upload_batch(upload_data):
         upload_data_txt += json_item
 
     request = HTTPRequest(tornado.options.options.es_url + "/_bulk", method="POST", body=upload_data_txt, request_timeout=240, headers={"Content-Type": "application/json"})
-    response = http_client.fetch(request)
+    response = await http_client.fetch(request)
     result = json.loads(response.body)
 
     global total_uploaded
@@ -170,11 +170,11 @@ def convert_msg_to_json(msg):
     return result
 
 
-def load_from_file():
+async def load_from_file():
 
     if tornado.options.options.init:
-        delete_index()
-    create_index()
+        await delete_index()
+    await create_index()
 
     if tornado.options.options.skip:
         logging.info("Skipping first %d messages" % tornado.options.options.skip)
@@ -198,12 +198,12 @@ def load_from_file():
         if item:
             upload_data.append(item)
             if len(upload_data) == tornado.options.options.batch_size:
-                upload_batch(upload_data)
+                await upload_batch(upload_data)
                 upload_data = list()
 
     # upload remaining items in `upload_batch`
     if upload_data:
-        upload_batch(upload_data)
+        await upload_batch(upload_data)
 
     logging.info("Import done - total count %d" % len(mbox.keys()))
 
@@ -249,7 +249,7 @@ if __name__ == '__main__':
 
     tornado.options.parse_command_line()
 
-    #Exactly one of {infile, indir} must be set
+    # Exactly one of {infile, indir} must be set
     if bool(tornado.options.options.infile) ^ bool(tornado.options.options.indir):
         IOLoop.instance().run_sync(load_from_file)
     else:
