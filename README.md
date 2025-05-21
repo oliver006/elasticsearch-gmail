@@ -1,9 +1,6 @@
 Elasticsearch For Beginners: Indexing your Gmail Inbox (and more: Supports any mbox and MH mailboxes)
 =======================
 
-[![Build Status](https://cloud.drone.io/api/badges/oliver006/elasticsearch-gmail/status.svg)](https://cloud.drone.io/oliver006/elasticsearch-gmail)
-
-
 #### What's this all about?
 
 I recently looked at my Gmail inbox and noticed that I have well over 50k emails, taking up about 12GB of space but there is no good way to tell what emails take up space, who sent them to, who emails me, etc
